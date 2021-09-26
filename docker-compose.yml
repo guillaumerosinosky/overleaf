@@ -6,6 +6,7 @@ services:
         # image: quay.io/sharelatex/sharelatex-pro
         image: sharelatex/sharelatex
         container_name: sharelatex
+        command: ["sleep", "600"]
         depends_on:
             mongo:
                 condition: service_healthy
@@ -103,7 +104,7 @@ services:
 
     mongo:
         restart: always
-        image: mongo:4.0
+        image: mongo:4.2
         container_name: mongo
         expose:
             - 27017
