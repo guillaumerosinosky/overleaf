@@ -1,0 +1,287 @@
+# based on Genc Tato's docker-compose
+version: '3.7'
+services:
+    web:
+        #command: ["bash", "app.sh"]
+        restart: always
+
+        image: sharelatex/sharelatex
+        build: 
+            #context: .
+            #dockerfile: Dockerfile-web
+            context: ./server-ce
+            dockerfile: Dockerfile
+            network: host
+        #command: ["sleep", "600"]
+
+        # container_name: sharelatex-web
+        depends_on:
+            - redis
+            - mongo
+        privileged: true
+        ports:
+            - 8080:80
+            #- 8080:3000
+        # volumes:
+        #     - ~/sharelatex_data/web:/var/lib/mongodb
+        env_file:
+            - default_ms.env
+        environment:
+            #REDIS_HOST: redis
+            #MONGO_HOST: mongo
+            SHARELATEX_MONGO_URL: mongodb://mongo/sharelatex
+            SHARELATEX_REDIS_HOST: redis
+
+            APP_NAME: MicroSharedLatex
+            SESSION_SECRET: 'secret-please-change'
+            #SHARELATEX_CONFIG: /etc/sharelatex/settings.coffee
+            PUBLIC_URL: http://localhost:8080/
+            #SHARELATEX_REAL_TIME_URL: "http://real-time:3026"
+            
+            ENABLE_TRACE_AGENT: "true"
+            ENABLE_DEBUG_AGENT: "true"
+            LOG_LEVEL: "debug"
+            DEBUG_NODE: 'true'
+
+            SHARELATEX_APP_NAME: Overleaf Community Edition
+
+            ENABLED_LINKED_FILE_TYPES: 'project_file,project_output_file'
+
+            # Enables Thumbnail generation using ImageMagick
+            ENABLE_CONVERSIONS: 'true'
+
+            # Disables email confirmation requirement
+            EMAIL_CONFIRMATION_DISABLED: 'true'
+
+            # temporary fix for LuaLaTex compiles
+            # see https://github.com/overleaf/overleaf/issues/695
+            TEXMFVAR: /var/lib/sharelatex/tmp/texmf-var
+
+        networks:
+            default:
+                aliases:
+                    - web
+
+      
+    clsi:
+        restart: always
+        image: grosinosky/sharelatex-clsi
+        #build: services/clsi
+        build: 
+            context: .
+            dockerfile: Dockerfile-clsi
+            network: host
+        # container_name: sharelatex-clsi
+        # expose:
+        #     - 3013
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+            TEXMFVAR: /var/lib/sharelatex/tmp/texmf-var
+        ports:
+            - 3013:3013
+
+    filestore:
+        restart: always
+        image: grosinosky/sharelatex-filestore
+        build: services/filestore
+        volumes:
+            - ~/sharelatex_data/filestore:/app/data
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        ports:
+            - 3009:3009
+        
+
+    docstore:
+        restart: always
+        image: grosinosky/sharelatex-docstore
+        build: services/docstore
+        volumes:
+            - ~/sharelatex_data/docstore:/var/lib/mongodb
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        ports:
+            - 3016:3016
+
+    # not found anymore
+    #tags:
+    #    restart: always
+    #    #build: sharelatex-tags
+    #    image: gtato/sharelatex-tags
+    #    volumes:
+    #        - ~/sharelatex_data/tags:/var/lib/mongodb
+    #    ports:
+    #        - 3012:3012
+
+
+    notifications:
+        restart: always
+        image: grosinosky/sharelatex-notifications
+        build: services/notifications
+        volumes:
+            - ~/sharelatex_data/notifications:/var/lib/mongodb
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        ports:
+            - 3042:3042
+
+    contacts:
+        restart: always
+        image: grosinosky/sharelatex-contacts
+        build: services/contacts
+        volumes:
+            - ~/sharelatex_data/contacts:/var/lib/mongodb
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        ports:
+            - 3036:3036
+        
+    spelling:
+        restart: always
+        image: grosinosky/sharelatex-spelling
+        build: services/spelling
+        ports:
+            - 3005:3005
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        volumes:
+            - ~/sharelatex_data/spelling:/var/lib/mongodb
+  
+
+    chat:
+        restart: always
+        image: grosinosky/sharelatex-chat
+        build: services/chat
+        ports:
+            - 3010:3010
+        networks:
+            default:
+                aliases:
+                    - chat
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        volumes:
+            - ~/sharelatex_data/chat:/var/lib/mongodb
+
+    track-changes:
+        restart: always
+        image: grosinosky/sharelatex-track-changes
+        build: services/track-changes
+        ports:
+            - 3015:3015
+        depends_on:
+            - redis
+        networks:
+            default:
+                aliases:
+                    - track-changes
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+        volumes:
+            - ~/sharelatex_data/track_changes:/var/lib/mongodb
+
+
+    real-time:
+        restart: always
+        image: grosinosky/sharelatex-real-time
+        build: services/real-time
+        # container_name: sharelatex-real-time
+        # expose:
+        #     - 3026
+        ports:
+            - 3026:3026
+        depends_on:
+            - redis
+        networks:
+            default:
+                aliases:
+                    - real-time
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+            LISTEN_ADDRESS: 0.0.0.0
+            
+    document-updater:
+        restart: always
+        image: grosinosky/sharelatex-document-updater
+        build: services/document-updater
+        # expose:
+        #     - 3003
+        ports:
+            - 3003:3003
+        depends_on:
+            - redis
+        networks:
+            default:
+                aliases:
+                    - document-updater
+        env_file:
+            - default_ms.env
+        environment:
+            REDIS_HOST: redis
+            MONGO_HOST: mongo
+            LISTEN_ADDRESS: 0.0.0.0
+
+    mongo:
+        restart: always
+        image: mongo:4.2
+        ports:
+            - 27017:27017
+        volumes:
+            - ~/mongo_data:/data/db
+
+    redis:
+        restart: always
+        image: redis:5
+        ports:
+            - 6379:6379
+        # volumes:
+        #     - ~/redis_data:/data
+        networks:
+            default:
+                aliases:
+                    - redis
+    mongo-express:
+        image: mongo-express
+        environment:
+            - ME_CONFIG_MONGODB_SERVER=mongo
+
+        ports:
+            - 8081:8081
+    
+    redis-ui:
+        image: rediscommander/redis-commander
+        environment:
+            - REDIS_HOSTS=redis1:redis:6379
+        ports:
+            - 8082:8081  
+networks:
+    default:   
+    
+

@@ -1,0 +1,27 @@
+FROM sharelatex/sharelatex-base as base
+
+
+RUN useradd -ms /bin/bash node
+
+WORKDIR /app
+#COPY services/clsi/install_deps.sh /app
+#RUN chmod 0755 ./install_deps.sh && ./install_deps.sh
+ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
+COPY services/clsi/entrypoint.sh /app
+RUN apt install 
+FROM base as app
+
+#wildcard as some files may not be in all repos
+COPY services/clsi/package*.json npm-shrink*.json /app/
+
+RUN npm ci --quiet
+
+COPY services/clsi/. /app
+
+FROM base
+
+COPY --from=app /app /app
+RUN mkdir -p cache compiles db output \
+&&  chown node:node cache compiles db output
+
+CMD ["node", "--expose-gc", "app.js"]
