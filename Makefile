@@ -2,8 +2,7 @@ clean:
 	docker-compose -f ./docker-compose_ms.yml rm -f
 
 rm: 
-	sudo rm -Rf ~/mongo_data
-	sudo rm -Rf ~/sharelatex_data/
+	sudo rm -Rf ~/overleaf_data/
 	docker-compose -f ./docker-compose_ms.yml rm -f
 
 build:

@@ -5,14 +5,13 @@ services:
         #command: ["bash", "app.sh"]
         restart: always
 
-        image: sharelatex/sharelatex
+        image: grosinosky/overleaf-web-nginx
         build: 
             #context: .
             #dockerfile: Dockerfile-web
-            context: ./server-ce
-            dockerfile: Dockerfile
+            context: .
+            dockerfile: server-ce/Dockerfile-webonly
             network: host
-        #command: ["sleep", "600"]
 
         # container_name: sharelatex-web
         depends_on:
@@ -20,23 +19,20 @@ services:
             - mongo
         privileged: true
         ports:
-            - 8080:80
-            #- 8080:3000
-        # volumes:
-        #     - ~/sharelatex_data/web:/var/lib/mongodb
+            - 8080:80 # nginx -> web & real-time 
+        volumes: 
+            # these files should be set together (or else 00_regen_sharelatex_secrets will replace them!)
+            - ./WEB_API_PASSWORD:/etc/container_environment/WEB_API_PASSWORD # contains "password"
+            - ./CRYPTO_RANDOM:/etc/container_environment/CRYPTO_RANDOM # contains 
         env_file:
             - default_ms.env
         environment:
-            #REDIS_HOST: redis
-            #MONGO_HOST: mongo
             SHARELATEX_MONGO_URL: mongodb://mongo/sharelatex
             SHARELATEX_REDIS_HOST: redis
 
             APP_NAME: MicroSharedLatex
-            SESSION_SECRET: 'secret-please-change'
-            #SHARELATEX_CONFIG: /etc/sharelatex/settings.coffee
+            SHARELATEX_SESSION_SECRET: 'secret-please-change'
             PUBLIC_URL: http://localhost:8080/
-            #SHARELATEX_REAL_TIME_URL: "http://real-time:3026"
             
             ENABLE_TRACE_AGENT: "true"
             ENABLE_DEBUG_AGENT: "true"
@@ -56,16 +52,15 @@ services:
             # temporary fix for LuaLaTex compiles
             # see https://github.com/overleaf/overleaf/issues/695
             TEXMFVAR: /var/lib/sharelatex/tmp/texmf-var
-
+            WEB_API_PASSWORD: password
         networks:
             default:
                 aliases:
                     - web
-
       
     clsi:
         restart: always
-        image: grosinosky/sharelatex-clsi
+        image: grosinosky/overleaf-clsi
         #build: services/clsi
         build: 
             context: .
@@ -80,15 +75,17 @@ services:
             REDIS_HOST: redis
             MONGO_HOST: mongo
             TEXMFVAR: /var/lib/sharelatex/tmp/texmf-var
+            OPTIMISE_PDF: "true"
+
         ports:
             - 3013:3013
 
     filestore:
         restart: always
-        image: grosinosky/sharelatex-filestore
+        image: grosinosky/overleaf-filestore
         build: services/filestore
         volumes:
-            - ~/sharelatex_data/filestore:/app/data
+            - ~/overleaf_data/filestore:/app/data
         env_file:
             - default_ms.env
         environment:
@@ -100,10 +97,8 @@ services:
 
     docstore:
         restart: always
-        image: grosinosky/sharelatex-docstore
+        image: grosinosky/overleaf-docstore
         build: services/docstore
-        volumes:
-            - ~/sharelatex_data/docstore:/var/lib/mongodb
         env_file:
             - default_ms.env
         environment:
@@ -112,23 +107,10 @@ services:
         ports:
             - 3016:3016
 
-    # not found anymore
-    #tags:
-    #    restart: always
-    #    #build: sharelatex-tags
-    #    image: gtato/sharelatex-tags
-    #    volumes:
-    #        - ~/sharelatex_data/tags:/var/lib/mongodb
-    #    ports:
-    #        - 3012:3012
-
-
     notifications:
         restart: always
-        image: grosinosky/sharelatex-notifications
+        image: grosinosky/overleaf-notifications
         build: services/notifications
-        volumes:
-            - ~/sharelatex_data/notifications:/var/lib/mongodb
         env_file:
             - default_ms.env
         environment:
@@ -139,10 +121,8 @@ services:
 
     contacts:
         restart: always
-        image: grosinosky/sharelatex-contacts
+        image: grosinosky/overleaf-contacts
         build: services/contacts
-        volumes:
-            - ~/sharelatex_data/contacts:/var/lib/mongodb
         env_file:
             - default_ms.env
         environment:
@@ -153,7 +133,7 @@ services:
         
     spelling:
         restart: always
-        image: grosinosky/sharelatex-spelling
+        image: grosinosky/overleaf-spelling
         build: services/spelling
         ports:
             - 3005:3005
@@ -162,13 +142,10 @@ services:
         environment:
             REDIS_HOST: redis
             MONGO_HOST: mongo
-        volumes:
-            - ~/sharelatex_data/spelling:/var/lib/mongodb
-  
 
     chat:
         restart: always
-        image: grosinosky/sharelatex-chat
+        image: grosinosky/overleaf-chat
         build: services/chat
         ports:
             - 3010:3010
@@ -181,12 +158,10 @@ services:
         environment:
             REDIS_HOST: redis
             MONGO_HOST: mongo
-        volumes:
-            - ~/sharelatex_data/chat:/var/lib/mongodb
 
     track-changes:
         restart: always
-        image: grosinosky/sharelatex-track-changes
+        image: grosinosky/overleaf-track-changes
         build: services/track-changes
         ports:
             - 3015:3015
@@ -201,17 +176,11 @@ services:
         environment:
             REDIS_HOST: redis
             MONGO_HOST: mongo
-        volumes:
-            - ~/sharelatex_data/track_changes:/var/lib/mongodb
-
 
     real-time:
         restart: always
-        image: grosinosky/sharelatex-real-time
+        image: grosinosky/overleaf-real-time
         build: services/real-time
-        # container_name: sharelatex-real-time
-        # expose:
-        #     - 3026
         ports:
             - 3026:3026
         depends_on:
@@ -226,13 +195,12 @@ services:
             REDIS_HOST: redis
             MONGO_HOST: mongo
             LISTEN_ADDRESS: 0.0.0.0
-            
+            SESSION_SECRET: "secret-please-change"
+
     document-updater:
         restart: always
-        image: grosinosky/sharelatex-document-updater
+        image: grosinosky/overleaf-document-updater
         build: services/document-updater
-        # expose:
-        #     - 3003
         ports:
             - 3003:3003
         depends_on:
@@ -254,15 +222,15 @@ services:
         ports:
             - 27017:27017
         volumes:
-            - ~/mongo_data:/data/db
+            - ~/overleaf_data/mongo_data:/data/db
 
     redis:
         restart: always
         image: redis:5
         ports:
             - 6379:6379
-        # volumes:
-        #     - ~/redis_data:/data
+        volumes:
+            - ~/overleaf_data/redis_data:/data
         networks:
             default:
                 aliases:
