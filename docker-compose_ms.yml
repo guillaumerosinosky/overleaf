@@ -196,6 +196,8 @@ services:
             MONGO_HOST: mongo
             LISTEN_ADDRESS: 0.0.0.0
             SESSION_SECRET: "secret-please-change"
+            CONTINUAL_PUBSUB_TRAFFIC: "true"
+            PUBLISH_ON_INDIVIDUAL_CHANNELS: "true"
 
     document-updater:
         restart: always
